@@ -52,7 +52,7 @@ spa.shell = (function(){
         for (key_name in arg_map){
             if (arg_map.hasOwnProperty(key_name)){
                 // skip dependent keys during iteration
-                if (key_name.indexOf('_') === 0) { continue }
+                if (key_name.indexOf('_') === 0) { continue KEYVAL }
 
                 // update independent key value
                 anchor_map_revise[key_name] = arg_map[key_name];
@@ -70,16 +70,15 @@ spa.shell = (function(){
         // End merge changes into anchor map
 
         // Begin attempt to update URI; revert if not successful
-        //try{
-        //    $.uriAnchor.setAnchor(stateMap.anchor_map, null, true)
-        //}
-        //catch(error){
-        //    // replace URI with existing state
-        //    $.uriAnchor.setAnchor(stateMap.anchor_map, null, true);
-        //    bool_return = false
-        //}
+        try{
+            $.uriAnchor.setAnchor(anchor_map_revise)
+        }
+        catch(error){
+            // replace URI with existing state
+            $.uriAnchor.setAnchor(stateMap.anchor_map, null, true);
+            bool_return = false
+        }
         // End attempt to update URI...
-        $.uriAnchor.setAnchor(stateMap.anchor_map, null, true);
         return bool_return
     };
 
@@ -166,7 +165,6 @@ spa.shell = (function(){
     };
 
     onClickChat = function(event){
-        //toggleChat(stateMap.is_chat_retracted);
         changeAnchorPart({
             chat: (stateMap.is_chat_retracted ? 'open' : 'closed')
         });

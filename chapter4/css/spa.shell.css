@@ -1,6 +1,6 @@
 .spa-shell-head, .spa-shell-head-logo, .spa-shell-head-acct,
 .spa-shell-head-search, .spa-shell-main, .spa-shell-main-nav,
-.spa-shell-main-content, .spa-shell-foot, .spa-shell-chat,
+.spa-shell-main-content, .spa-shell-foot, /*.spa-shell-chat,*/
 .spa-shell-modal{
     position: absolute;
 }
@@ -66,6 +66,7 @@
     right: 0;
     height: 40px;
 }
+/*
 .spa-shell-chat{
     bottom: 0;
     right: 0;
@@ -79,14 +80,17 @@
     .spa-shell-chat:hover{
         background-color: #a00;
     }
+    */
 .spa-shell-modal{
-    margin-top: -200px;
-    margin-left: -200px;
-    top: 50%;
-    left: 50%;
-    width: 400px;
-    height: 400px;
-    background: #fff;
-    border-radius: 3px;
-    z-index: 2;
+    /*margin-top: -200px;*/
+    /*margin-left: -200px;*/
+    /*top: 50%;*/
+    /*left: 50%;*/
+    /*width: 400px;*/
+    /*height: 400px;*/
+    /*background: #fff;*/
+    /*border-radius: 3px;*/
+    /*z-index: 2;*/
+    /*display: none;*/
+    display: none;
 }

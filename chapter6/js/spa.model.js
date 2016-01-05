@@ -79,7 +79,9 @@ spa.model = (function(){
      *                        custom event. If the user is anonymous or the chatee is null, it aborts
      *                        and returns false.
      * jQuery global custom events published by the object include;
-     *
+     * update_avatar(<update_avtr_map>) - send the update_avtr_map to the backend. This results in an
+     * 'spa-listchange' event which published the updated people list and avatar information(the css_map
+     * in the person objects). The update_avtr_map must have the form {person_id: person_id, css_map: css_map}
      * spa-setchatee - This is published when a new chatee is set. A map of the form:
      * { old_chatee: <old_chatee_person_object>,
      *   new_chatee: <new_chatee_person_object>   }
@@ -95,18 +97,37 @@ spa.model = (function(){
      *
      * *spa-listchange - This is published when the list of online people
      * changes in length.
+     *
+     * *spa-updatechat - This is published when a new message is received or sent. A map of the form:
+     *                   { dest_id: <chatee_id>,
+     *                     dest_name: <chatee_name>,
+      *                    sender_id: <sender_id>,
+     *                     msg_text: <message_content>
+     *                   }
      * A subscriber to this event should get the people_db from the people
      * model for the update data.
      */
     chat = (function(){
         var _publish_listchange, _update_list, _leave_chat, join_chat,
-            _publish_updatechat, get_chatee, send_msg, set_chatee;
+            _publish_updatechat, get_chatee, send_msg, set_chatee, update_avatar;
 
         var chatee = null;
+
+        // avatar_update_map should have the form:
+        // { person_id: <string>, css_map: {
+        //   top: <int>, left: <int>, 'background-color': <string>
+        // }};
+        update_avatar = function(avatar_update_map){
+            var sio = isFakeData ? spa.fake.mockSio : spa.data.getSio();
+            if (sio){
+                sio.emit('updateavatar', avatar_update_map)
+            }
+        };
 
         // Begin internal methods
         _update_list = function(arg_list){
             var i, person_map, make_person_map, people_list = arg_list[0];
+            var is_chatee_online = false;
 
             clearPeopleDb();
 
@@ -128,9 +149,17 @@ spa.model = (function(){
                     name: person_map.name
                 };
 
+                if ( chatee && chatee.id === make_person_map.id ){
+                    is_chatee_online = true
+                }
+
                 makePerson(make_person_map);
             }
             stateMap.people_db.sort('name');
+            // If chatee is no longer online, we unset the chatee which triggers the 'spa-setchatee' global event
+            if ( chatee && !is_chatee_online ){
+                set_chatee('')
+            }
         };
 
         _publish_listchange = function(arg_list){
@@ -139,13 +168,30 @@ spa.model = (function(){
         };
         // End internal methods
 
+        _publish_updatechat = function(arg_list){
+            var msg_map = arg_list[0];
+
+            if (!chatee){
+                set_chatee(msg_map.sender_id)
+            }else if ( msg_map.sender_id !== stateMap.user.id && msg_map.sender_id !== chatee.id ){
+                set_chatee(msg_map.sender_id)
+            }
+
+            $.gevent.publish('spa-updatechat', [msg_map])
+        };
+
 
         _leave_chat = function(){
             var sio = isFakeData ? spa.fake.mockSio : spa.data.getSio();
+            chatee = null;
             stateMap.is_connected = false;
             if (sio){
                 sio.emit('leavechat');
             }
+        };
+
+        get_chatee = function(){
+            return chatee
         };
 
         join_chat = function(){
@@ -161,13 +207,63 @@ spa.model = (function(){
 
             sio = isFakeData ? spa.fake.mockSio : spa.data.getSio();
             sio.on('listchange', _publish_listchange);
+            sio.on('updatechat', _publish_updatechat);
             stateMap.is_connected = true;
+            return true
+        };
+
+        send_msg = function(msg_text){
+            var msg_map;
+            var sio = isFakeData ? spa.fake.mockSio : spa.data.getSio();
+
+            if (!sio){
+                return false
+            }
+
+            if (!(stateMap.user && chatee)){
+                return false
+            }
+
+            msg_map = {
+                dest_id: chatee.id,
+                dest_name: chatee.name,
+                sender_id: stateMap.user.id,
+                msg_text: msg_text
+            };
+
+            // we published updatechat so we can show our outgoing messages
+            _publish_updatechat([msg_map]);
+            sio.emit('updatechat', msg_map);
+
+            return true
+        };
+
+        set_chatee = function(person_id){
+            var new_chatee;
+            new_chatee = stateMap.people_cid_map[person_id];
+            if (new_chatee){
+                if (chatee && chatee.id === new_chatee.id){
+                    return false
+                }
+            }else{
+                new_chatee = null
+            }
+
+            $.gevent.publish('spa-setchatee', {
+                old_chatee: chatee,
+                new_chatee: new_chatee
+            });
+            chatee = new_chatee;
             return true
         };
 
         return {
             _leave: _leave_chat,
-            join: join_chat
+            get_chatee: get_chatee,
+            join: join_chat,
+            send_msg: send_msg,
+            set_chatee: set_chatee,
+            update_avatar: update_avatar
         }
     }());
 
@@ -268,7 +364,7 @@ spa.model = (function(){
     }());
 
     initModule = function(){
-        var i, people_list, person_map;
+        //var i, people_list, person_map;
 
         // initialize anonymous person
         stateMap.anon_user = makePerson({
